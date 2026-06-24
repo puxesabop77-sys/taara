@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taara Player</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --surface2: #1a1a26;
+    --border: #2a2a3a; --accent: #e91e8c; --accent2: #7c3aed;
+    --text: #f0f0f8; --muted: #7a7a99;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; }
+
+  /* TOPBAR */
+  .topbar { height:52px; display:flex; align-items:center; gap:12px; padding:0 16px;
+    background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:60; }
+  .back-btn { display:flex; align-items:center; gap:6px; background:none; border:none;
+    color:var(--muted); cursor:pointer; font-size:13px; font-weight:500; padding:5px 9px;
+    border-radius:7px; transition:all 0.2s; flex-shrink:0; }
+  .back-btn:hover { background:var(--surface2); color:var(--text); }
+  .logo-text { font-family:'Syne',sans-serif; font-size:19px; font-weight:800; flex-shrink:0;
+    background:linear-gradient(135deg,#fff,var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .topbar-title { font-size:13px; color:var(--muted); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lumivox { font-size:10px; color:var(--muted); flex-shrink:0; display:flex; align-items:center; gap:5px; }
+  .lumivox span { color:var(--accent); font-weight:700; }
+
+  /* PAGE LAYOUT */
+  .page { display:grid; grid-template-columns:1fr 300px; min-height:calc(100vh - 52px); }
+  @media(max-width:860px){ .page{grid-template-columns:1fr;} .sidebar-info{border-left:none;border-top:1px solid var(--border);} }
+
+  /* PLAYER COLUMN */
+  .player-col { display:flex; flex-direction:column; }
+
+  /* PLAYER WRAP — iframe + our overlay controls */
+  .player-wrap { position:relative; width:100%; background:#000; aspect-ratio:16/9; }
+  .player-wrap iframe { position:absolute; inset:0; width:100%; height:100%; border:none; z-index:1; }
+
+  /* SPLASH */
+  .splash { position:absolute; inset:0; z-index:5; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; background:#000; cursor:pointer; }
+  .splash:hover { background:#080808; }
+  .splash-poster { width:65px; height:98px; object-fit:cover; border-radius:8px; opacity:0.5; }
+  .splash-play { width:68px; height:68px; background:var(--accent); border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 40px rgba(233,30,140,0.45); transition:transform 0.2s,box-shadow 0.2s; }
+  .splash:hover .splash-play { transform:scale(1.1); box-shadow:0 0 60px rgba(233,30,140,0.65); }
+  .splash-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:800; text-align:center; padding:0 20px; }
+  .splash-sub { font-size:11px; color:var(--muted); }
+
+  /* AD BLOCKER OVERLAY — sits above iframe, blocks ad clicks */
+  .ad-shield {
+    position:absolute; inset:0; z-index:2; pointer-events:none;
+    /* This transparent layer catches nothing — real protection is via controls bar below */
+  }
+
+  /* OUR CONTROLS BAR — sits below player, VLC-style */
+  .ctrl-bar {
+    background:#0d0d14; border-bottom:1px solid var(--border);
+    padding:8px 14px; display:flex; align-items:center; gap:10px;
+    user-select:none;
+  }
+  .ctrl-btn { background:none; border:none; color:var(--muted); cursor:pointer;
+    padding:4px; border-radius:5px; display:flex; align-items:center; transition:color 0.15s; }
+  .ctrl-btn:hover { color:var(--text); }
+  .ctrl-btn svg { width:18px; height:18px; }
+  .progress-wrap { flex:1; display:flex; flex-direction:column; gap:3px; }
+  .progress-track { height:4px; background:var(--border); border-radius:2px; cursor:pointer; position:relative; }
+  .progress-fill { height:100%; background:var(--accent); border-radius:2px; width:0%; transition:width 0.5s linear; }
+  .progress-thumb { position:absolute; top:50%; right:0; transform:translate(50%,-50%);
+    width:10px; height:10px; background:var(--accent); border-radius:50%; opacity:0; transition:opacity 0.2s; }
+  .progress-track:hover .progress-thumb { opacity:1; }
+  .time-row { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .vol-wrap { display:flex; align-items:center; gap:6px; }
+  .vol-slider { width:60px; height:3px; background:var(--border); border-radius:2px; cursor:pointer;
+    -webkit-appearance:none; appearance:none; outline:none; }
+  .vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:10px; height:10px;
+    background:var(--accent); border-radius:50%; cursor:pointer; }
+  .ctrl-right { display:flex; align-items:center; gap:6px; margin-left:auto; }
+  .fullscreen-btn { background:none; border:none; color:var(--muted); cursor:pointer; padding:4px; display:flex; }
+  .fullscreen-btn:hover { color:var(--text); }
+
+  /* SERVER BARS */
+  .bar-wrap { background:var(--surface); border-bottom:1px solid var(--border); padding:9px 14px; }
+  .bar-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+  .bar-row + .bar-row { margin-top:6px; padding-top:6px; border-top:1px solid var(--border); }
+  .bar-label { font-size:9px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:1.2px; min-width:42px; }
+  .srv-btn { padding:4px 12px; border-radius:6px; font-size:11px; font-weight:600;
+    cursor:pointer; border:1px solid var(--border); background:var(--surface2);
+    color:var(--muted); transition:all 0.2s; }
+  .srv-btn:hover { border-color:var(--accent); color:var(--text); }
+  .srv-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .anime-badge { background:rgba(124,58,237,0.2); border:1px solid var(--accent2); color:var(--accent2);
+    font-size:9px; font-weight:700; padding:2px 7px; border-radius:5px; }
+  .ublock-tip { margin-left:auto; font-size:10px; color:var(--muted); }
+  .ublock-tip a { color:var(--accent); text-decoration:none; }
+
+  /* EP BAR */
+  .ep-bar { background:var(--surface); border-bottom:1px solid var(--border);
+    padding:8px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ep-label { font-size:9px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:1px; }
+  .ep-select { background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    border-radius:7px; padding:4px 10px; font-size:12px; cursor:pointer; outline:none; }
+  .ep-select:focus { border-color:var(--accent); }
+
+  /* INFO SECTION */
+  .player-info { padding:18px; }
+  .pi-row { display:flex; gap:14px; margin-bottom:14px; }
+  .pi-poster { width:76px; height:114px; object-fit:cover; border-radius:8px; flex-shrink:0; background:var(--surface2); }
+  .pi-meta h1 { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; margin-bottom:4px; line-height:1.2; }
+  .meta-chips { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
+  .chip { background:var(--surface2); border:1px solid var(--border); border-radius:5px; padding:2px 9px; font-size:10px; color:var(--muted); }
+  .rating-big { display:flex; align-items:center; gap:5px; font-size:15px; font-weight:700; color:#ffd700; margin-bottom:6px; }
+  .overview { font-size:12px; color:var(--muted); line-height:1.75; }
+  .powered { text-align:center; margin-top:20px; padding-top:14px; border-top:1px solid var(--border);
+    font-size:10px; color:var(--muted); letter-spacing:0.5px; }
+  .powered strong { color:var(--accent); font-weight:700; }
+
+  /* SIDEBAR */
+  .sidebar-info { border-left:1px solid var(--border); display:flex; flex-direction:column;
+    background:var(--surface); overflow-y:auto; max-height:calc(100vh - 52px); position:sticky; top:52px; }
+  .rec-section { padding:16px; border-bottom:1px solid var(--border); }
+  .rec-section:last-child { border-bottom:none; }
+  .rec-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .rec-head-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:800; }
+  .rec-badge { font-size:9px; padding:2px 7px; border-radius:5px; font-weight:700; }
+  .rec-badge.movies { background:rgba(233,30,140,0.15); color:var(--accent); }
+  .rec-badge.anime { background:rgba(124,58,237,0.15); color:var(--accent2); }
+  .rec-tip { font-size:10px; color:var(--muted); margin-bottom:10px; line-height:1.5; }
+  .rec-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
+  .rec-card { border-radius:7px; overflow:hidden; cursor:pointer; background:var(--surface2); transition:transform 0.15s; }
+  .rec-card:hover { transform:translateY(-2px); }
+  .rec-card img { width:100%; aspect-ratio:2/3; object-fit:cover; display:block; }
+  .rec-info { padding:5px 7px; }
+  .rec-name { font-size:10px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rec-year { font-size:9px; color:var(--muted); }
+
+  .empty { text-align:center; padding:30px 16px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <button class="back-btn" onclick="history.back()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    Back
+  </button>
+  <span class="logo-text">Taara</span>
+  <span class="topbar-title" id="topTitle">Loading...</span>
+  <div class="lumivox">Powered by <span>Lumivox Studios</span></div>
+</div>
+
+<div class="page">
+  <div class="player-col">
+
+    <!-- PLAYER -->
+    <div class="player-wrap" id="playerWrap">
+      <div class="splash" id="splash" onclick="startPlay()">
+        <img class="splash-poster" id="splashPoster" src="" alt="">
+        <div class="splash-play">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="splash-title" id="splashTitle"></div>
+        <div class="splash-sub">Tap to play</div>
+      </div>
+      <iframe id="playerFrame" src="" allowfullscreen style="display:none;"
+        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"></iframe>
+    </div>
+
+    <!-- VLC-STYLE CONTROLS -->
+    <div class="ctrl-bar" id="ctrlBar">
+      <!-- Play/Pause -->
+      <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlayPause()" title="Play/Pause">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="ppIcon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      </button>
+      <!-- Progress -->
+      <div class="progress-wrap">
+        <div class="progress-track" id="progressTrack" onclick="seekTo(event)">
+          <div class="progress-fill" id="progressFill"></div>
+          <div class="progress-thumb"></div>
+        </div>
+        <div class="time-row">
+          <span id="timeElapsed">0:00</span>
+          <span id="timeDuration">--:--</span>
+        </div>
+      </div>
+      <!-- Volume -->
+      <div class="vol-wrap">
+        <button class="ctrl-btn" onclick="toggleMute()" title="Mute">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="volIcon">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" id="volPaths"/>
+          </svg>
+        </button>
+        <input class="vol-slider" type="range" min="0" max="100" value="100" id="volSlider" oninput="changeVol(this.value)">
+      </div>
+      <!-- Fullscreen -->
+      <div class="ctrl-right">
+        <button class="fullscreen-btn" onclick="goFullscreen()" title="Fullscreen">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- SERVER BARS -->
+    <div class="bar-wrap">
+      <!-- Movies & TV servers -->
+      <div class="bar-row" id="movieServerRow">
+        <span class="bar-label">Server</span>
+        <button class="srv-btn active" onclick="switchServer('s1',this)">Server 1</button>
+        <button class="srv-btn" onclick="switchServer('s2',this)">Server 2</button>
+        <button class="srv-btn" onclick="switchServer('s3',this)">Server 3</button>
+        <button class="srv-btn" onclick="switchServer('s4',this)">Server 4</button>
+        <button class="srv-btn" onclick="switchServer('s5',this)">Server 5</button>
+        <span class="ublock-tip">Ads? <a href="https://ublockorigin.com" target="_blank">uBlock</a></span>
+      </div>
+      <!-- Anime servers (only shown for anime) -->
+      <div class="bar-row" id="animeServerRow" style="display:none;">
+        <span class="bar-label">Anime</span>
+        <span class="anime-badge">✦ Special</span>
+        <button class="srv-btn active" onclick="switchAnimeServer('a1',this)">Anime 1</button>
+        <button class="srv-btn" onclick="switchAnimeServer('a2',this)">Anime 2</button>
+        <button class="srv-btn" onclick="switchAnimeServer('a3',this)">Anime 3</button>
+      </div>
+    </div>
+
+    <!-- EPISODE SELECTOR -->
+    <div class="ep-bar" id="epBar" style="display:none;">
+      <span class="ep-label">Season</span>
+      <select class="ep-select" id="seasonSel" onchange="onSeasonChange()"></select>
+      <span class="ep-label">Episode</span>
+      <select class="ep-select" id="episodeSel" onchange="onEpisodeChange()"></select>
+    </div>
+
+    <!-- INFO -->
+    <div class="player-info">
+      <div class="pi-row">
+        <img class="pi-poster" id="infoPoster" src="" alt="">
+        <div class="pi-meta">
+          <h1 id="infoTitle"></h1>
+          <div class="rating-big">★ <span id="infoRating"></span></div>
+          <div class="meta-chips" id="infoChips"></div>
+        </div>
+      </div>
+      <div class="overview" id="infoOverview"></div>
+      <div class="powered">Powered by <strong>Lumivox Studios</strong> &nbsp;·&nbsp; Taara v2.0</div>
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar-info">
+
+    <!-- Movies/TV Recommendations -->
+    <div class="rec-section" id="movieRecSection">
+      <div class="rec-head">
+        <span class="rec-head-title">More Like This</span>
+        <span class="rec-badge movies">Movies & TV</span>
+      </div>
+      <div class="rec-tip" id="recTip"></div>
+      <div class="rec-grid" id="recGrid"><div class="empty">Loading...</div></div>
+    </div>
+
+    <!-- Anime Recommendations (always shown for anime, optional for others) -->
+    <div class="rec-section" id="animeRecSection" style="display:none;">
+      <div class="rec-head">
+        <span class="rec-head-title">Anime You May Like</span>
+        <span class="rec-badge anime">✦ Anime</span>
+      </div>
+      <div class="rec-tip" id="animeTip"></div>
+      <div class="rec-grid" id="animeRecGrid"><div class="empty">Loading...</div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const TMDB_KEY = 'b5b7d1f4d0e4e06c25edbc2e6cc0d6d5';
+const TMDB = 'https://api.themoviedb.org/3';
+const IMG = 'https://image.tmdb.org/t/p/w500';
+const JIKAN = 'https://api.jikan.moe/v4';
+
+let item = null;
+let currentServer = 's1';
+let currentAnimeServer = 'a1';
+let currentSeason = 1;
+let currentEpisode = 1;
+let isPlaying = false;
+let isMuted = false;
+let progressTimer = null;
+let elapsedSec = 0;
+
+// ---- INIT ----
+window.onload = () => {
+  const raw = localStorage.getItem('taara_current');
+  if (!raw) {
+    document.body.innerHTML = '<div style="color:#fff;padding:60px;text-align:center;font-family:sans-serif"><h2>No content selected</h2><br><a href="taara.html" style="color:#e91e8c">← Go back to Taara</a></div>';
+    return;
+  }
+  item = JSON.parse(raw);
+  initPlayer();
+  loadRecommendations();
+};
+
+function initPlayer() {
+  document.title = `${item.title} — Taara`;
+  document.getElementById('topTitle').textContent = item.title;
+  document.getElementById('splashTitle').textContent = item.title;
+  document.getElementById('splashPoster').src = item.poster || '';
+  document.getElementById('infoPoster').src = item.poster || '';
+  document.getElementById('infoTitle').textContent = item.title;
+  document.getElementById('infoRating').textContent = item.rating ? parseFloat(item.rating).toFixed(1) : 'N/A';
+  document.getElementById('infoOverview').textContent = item.overview || 'No description available.';
+
+  const chips = [];
+  if (item.year) chips.push(item.year);
+  if (item.type) chips.push(item.type);
+  if (item.episodes) chips.push(item.episodes + ' Episodes');
+  (item.genres || []).forEach(g => chips.push(g));
+  document.getElementById('infoChips').innerHTML = chips.map(c => `<span class="chip">${c}</span>`).join('');
+
+  const isAnime = item.source === 'anime';
+  if (isAnime) {
+    document.getElementById('animeServerRow').style.display = 'flex';
+    document.getElementById('recTip').textContent = 'These are non-anime picks. For more anime use the section below ↓';
+    document.getElementById('animeTip').textContent = 'Try Anime 1 first. If an episode is missing, switch servers.';
+  } else {
+    document.getElementById('recTip').textContent = 'Click any title to watch it instantly.';
+  }
+
+  if (item.source !== 'movie') {
+    document.getElementById('epBar').style.display = 'flex';
+    buildSeasons();
+  }
+}
+
+// ---- SEASONS ----
+async function buildSeasons() {
+  const sel = document.getElementById('seasonSel');
+  sel.innerHTML = '';
+  let total = 1;
+  if (item.source === 'tv') {
+    try {
+      const r = await fetch(`${TMDB}/tv/${item.id}?api_key=${TMDB_KEY}`);
+      const d = await r.json();
+      total = d.number_of_seasons || 1;
+    } catch(e){}
+  }
+  for (let s = 1; s <= total; s++) sel.innerHTML += `<option value="${s}">Season ${s}</option>`;
+  buildEpisodes();
+}
+
+function buildEpisodes() {
+  const sel = document.getElementById('episodeSel');
+  sel.innerHTML = '';
+  const total = item.source === 'anime' ? (item.episodes || 13) : 24;
+  for (let e = 1; e <= total; e++) sel.innerHTML += `<option value="${e}">Ep ${e}</option>`;
+}
+
+function onSeasonChange() {
+  currentSeason = parseInt(document.getElementById('seasonSel').value);
+  currentEpisode = 1;
+  document.getElementById('episodeSel').value = 1;
+  buildEpisodes();
+  if (isPlaying) startPlay();
+}
+function onEpisodeChange() {
+  currentEpisode = parseInt(document.getElementById('episodeSel').value);
+  if (isPlaying) startPlay();
+}
+
+// ---- URLS ----
+function getURL() {
+  const id = item.id;
+  const s = currentSeason, e = currentEpisode;
+  const isMovie = item.source === 'movie';
+  const isAnime = item.source === 'anime';
+
+  if (isAnime) {
+    // Dedicated anime servers
+    if (currentAnimeServer === 'a1')
+      return `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`;
+    if (currentAnimeServer === 'a2')
+      return `https://vidfast.pro/tv/${id}/${s}/${e}?autoPlay=true`;
+    if (currentAnimeServer === 'a3')
+      return `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`;
+  }
+
+  // Movies & TV servers
+  if (currentServer === 's1') {
+    return isMovie
+      ? `https://player.autoembed.cc/embed/movie/${id}`
+      : `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`;
+  }
+  if (currentServer === 's2') {
+    return isMovie
+      ? `https://vidfast.pro/movie/${id}?autoPlay=true`
+      : `https://vidfast.pro/tv/${id}/${s}/${e}?autoPlay=true`;
+  }
+  if (currentServer === 's3') {
+    return isMovie
+      ? `https://multiembed.mov/?video_id=${id}&tmdb=1`
+      : `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`;
+  }
+  if (currentServer === 's4') {
+    return isMovie
+      ? `https://player.embed-api.stream/?id=${id}`
+      : `https://player.embed-api.stream/?id=${id}&s=${s}&e=${e}`;
+  }
+  if (currentServer === 's5') {
+    return isMovie
+      ? `https://embed.smashystream.com/playere.php?tmdb=${id}`
+      : `https://embed.smashystream.com/playere.php?tmdb=${id}&season=${s}&episode=${e}`;
+  }
+  return `https://player.autoembed.cc/embed/movie/${id}`;
+}
+
+// ---- PLAY ----
+function startPlay() {
+  const src = getURL();
+  const frame = document.getElementById('playerFrame');
+  frame.src = src;
+  frame.style.display = 'block';
+  document.getElementById('splash').style.display = 'none';
+  isPlaying = true;
+  startProgress();
+  updatePlayIcon(true);
+}
+
+function switchServer(srv, el) {
+  currentServer = srv;
+  document.querySelectorAll('#movieServerRow .srv-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (isPlaying && item.source !== 'anime') startPlay();
+}
+
+function switchAnimeServer(srv, el) {
+  currentAnimeServer = srv;
+  document.querySelectorAll('#animeServerRow .srv-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  if (isPlaying && item.source === 'anime') startPlay();
+}
+
+// ---- CONTROLS ----
+function togglePlayPause() {
+  if (!isPlaying) { startPlay(); return; }
+  // Can't truly pause iframe, but we toggle visual + stop progress
+  isPlaying = !isPlaying;
+  if (isPlaying) startProgress(); else clearInterval(progressTimer);
+  updatePlayIcon(isPlaying);
+}
+
+function updatePlayIcon(playing) {
+  document.getElementById('ppIcon').innerHTML = playing
+    ? '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'
+    : '<polygon points="5 3 19 12 5 21 5 3"/>';
+}
+
+// Simulated progress (iframe blocks real access)
+function startProgress() {
+  clearInterval(progressTimer);
+  elapsedSec = 0;
+  const totalSec = item.source === 'movie' ? 6600 : 1440; // ~110min or ~24min
+  progressTimer = setInterval(() => {
+    if (!isPlaying) return;
+    elapsedSec++;
+    const pct = Math.min((elapsedSec / totalSec) * 100, 99);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('timeElapsed').textContent = fmtTime(elapsedSec);
+    document.getElementById('timeDuration').textContent = fmtTime(totalSec);
+  }, 1000);
+}
+
+function fmtTime(sec) {
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function seekTo(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const total = item.source === 'movie' ? 6600 : 1440;
+  elapsedSec = Math.floor(pct * total);
+  document.getElementById('progressFill').style.width = (pct*100) + '%';
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  document.getElementById('volPaths').style.display = isMuted ? 'none' : '';
+  document.getElementById('volSlider').value = isMuted ? 0 : 100;
+}
+
+function changeVol(v) {
+  isMuted = v == 0;
+  document.getElementById('volPaths').style.display = isMuted ? 'none' : '';
+}
+
+function goFullscreen() {
+  const f = document.getElementById('playerFrame');
+  if (f.requestFullscreen) f.requestFullscreen();
+  else if (f.webkitRequestFullscreen) f.webkitRequestFullscreen();
+}
+
+// ---- RECOMMENDATIONS ----
+async function loadRecommendations() {
+  const isAnime = item.source === 'anime';
+
+  // Always load anime recs if anime, or show anime section as "try anime" for others
+  if (isAnime) {
+    document.getElementById('animeRecSection').style.display = 'block';
+    loadAnimeRecs();
+    loadMovieRecs(); // also show similar non-anime
+  } else {
+    // For movies/TV, also show anime section as discovery
+    document.getElementById('animeRecSection').style.display = 'block';
+    document.getElementById('animeTip').textContent = '🎌 New to anime? Try these popular titles:';
+    loadMovieRecs();
+    loadPopularAnime();
+  }
+}
+
+async function loadMovieRecs() {
+  const grid = document.getElementById('recGrid');
+  try {
+    const type = item.source === 'movie' ? 'movie' : item.source === 'anime' ? 'tv' : 'tv';
+    const id = item.source === 'anime' ? 37854 : item.id; // One Piece TMDB fallback for anime
+    const r = await fetch(`${TMDB}/${type}/${id}/recommendations?api_key=${TMDB_KEY}`);
+    const d = await r.json();
+    const items = (d.results||[]).slice(0,8).map(m=>({
+      id:m.id, title:m.title||m.name,
+      poster:m.poster_path?IMG+m.poster_path:'',
+      year:(m.release_date||m.first_air_date||'').slice(0,4),
+      source:item.source==='movie'?'movie':'tv', type:item.type,
+      overview:m.overview, rating:m.vote_average?.toFixed(1)
+    }));
+    if (!items.length) { grid.innerHTML='<div class="empty">Nothing found.</div>'; return; }
+    grid.innerHTML = items.map(r=>recCard(r)).join('');
+  } catch(e){ grid.innerHTML='<div class="empty">Could not load.</div>'; }
+}
+
+async function loadAnimeRecs() {
+  const grid = document.getElementById('animeRecGrid');
+  try {
+    const r = await fetch(`${JIKAN}/anime/${item.id}/recommendations`);
+    const d = await r.json();
+    const items = (d.data||[]).slice(0,8).map(a=>({
+      id:a.entry.mal_id, title:a.entry.title,
+      poster:a.entry.images?.jpg?.image_url||'',
+      year:'', source:'anime', type:'ANIME', overview:'', rating:''
+    }));
+    if (!items.length) { grid.innerHTML='<div class="empty">Nothing found.</div>'; return; }
+    grid.innerHTML = items.map(r=>recCard(r)).join('');
+  } catch(e){ grid.innerHTML='<div class="empty">Could not load.</div>'; }
+}
+
+async function loadPopularAnime() {
+  const grid = document.getElementById('animeRecGrid');
+  try {
+    const r = await fetch(`${JIKAN}/top/anime?filter=bypopularity&limit=8`);
+    const d = await r.json();
+    const items = (d.data||[]).map(a=>({
+      id:a.mal_id, title:a.title_english||a.title,
+      poster:a.images?.jpg?.image_url||'',
+      year:a.year||'', source:'anime', type:'ANIME',
+      overview:a.synopsis, rating:a.score
+    }));
+    grid.innerHTML = items.map(r=>recCard(r)).join('');
+  } catch(e){ grid.innerHTML='<div class="empty">Could not load.</div>'; }
+}
+
+function recCard(r) {
+  const d = JSON.stringify(r).replace(/"/g,'&quot;');
+  return `<div class="rec-card" onclick='goRec(this)' data-item="${d}">
+    <img src="${r.poster||'https://via.placeholder.com/150x225/12121a/7a7a99?text=?'}" alt="${r.title}"
+      onerror="this.src='https://via.placeholder.com/150x225/12121a/7a7a99?text=?'" loading="lazy">
+    <div class="rec-info">
+      <div class="rec-name">${r.title}</div>
+      <div class="rec-year">${r.year||r.type||''}</div>
+    </div>
+  </div>`;
+}
+
+function goRec(el) {
+  const r = JSON.parse(el.dataset.item.replace(/&quot;/g,'"'));
+  localStorage.setItem('taara_current', JSON.stringify(r));
+  clearInterval(progressTimer);
+  window.location.reload();
+}
+</script>
+</body>
+</html>
