@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Taara</title>
+<link rel="stylesheet" href="player.css"/>
+</head>
+<body>
+
+<!-- ── TOP BAR ── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <button class="back-btn" onclick="history.back()">&#8592;</button>
+    <div class="title-group">
+      <h1 id="topTitle"></h1>
+      <p id="topSub"></p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="brand-pill">
+      <span class="brand-name">Taara</span>
+      <div class="brand-divider"></div>
+      <span class="brand-by">Lumivox Studios</span>
+    </div>
+    <div class="cast-wrap">
+      <button class="cast-btn" title="Cast">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2 8.5C2 5.46 4.46 3 7.5 3h9C19.54 3 22 5.46 22 8.5v7c0 3.04-2.46 5.5-5.5 5.5H12"/>
+          <path d="M2 17a7 7 0 0 1 7 7"/><path d="M2 13a11 11 0 0 1 11 11"/>
+          <circle cx="2" cy="24" r="1.5" fill="currentColor"/>
+        </svg>
+      </button>
+      <div class="cast-dot"></div>
+    </div>
+    <button class="details-btn">Details ›</button>
+  </div>
+</div>
+
+<!-- ── PLAYER ── -->
+<div class="player-wrapper">
+  <div class="player-container" id="playerContainer">
+
+    <iframe id="playerFrame"
+      allowfullscreen
+      allow="autoplay; fullscreen; encrypted-media; picture-in-picture">
+    </iframe>
+
+    <!-- Overlay -->
+    <div class="player-overlay" id="playerOverlay">
+      <div class="np-label">
+        <span>Now Playing</span>
+        <h2 id="npTitle"></h2>
+      </div>
+      <div class="spinner" id="spinner"></div>
+      <div class="play-btn-big" id="playBig" onclick="dismissOverlay()">
+        <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+      </div>
+      <div class="status-chip">
+        <div class="dot-pulse"></div>
+        <span id="statusTxt">Connecting…</span>
+      </div>
+    </div>
+
+    <!-- Hover icons -->
+    <div class="screen-icons">
+      <div class="si" title="Fullscreen" onclick="goFullscreen()">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+      </div>
+      <div class="si" title="Cast" onclick="showToast('Cast coming soon')">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="7" width="20" height="13" rx="2"/>
+          <path d="M17 7V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2"/>
+        </svg>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── PROGRESS ── -->
+<div class="progress-area">
+  <div class="time-row">
+    <span class="tlabel" id="curTime">0:00</span>
+    <div class="ptrack" id="ptrack" onclick="seekTo(event)">
+      <div class="pfill" id="pfill">
+        <div class="pthumb" id="pthumb"></div>
+      </div>
+    </div>
+    <span class="tlabel r" id="totTime">—</span>
+  </div>
+</div>
+
+<!-- ── CONTROLS ── -->
+<div class="controls-row">
+  <div class="cgroup">
+    <!-- Pause/Play -->
+    <button class="cbtn" id="pauseBtn" data-tip="Pause" onclick="togglePause(this)">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+        <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+      </svg>
+    </button>
+    <!-- Replay 10s -->
+    <button class="cbtn" data-tip="-10s" onclick="showToast('Seek -10s')">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+      </svg>
+    </button>
+    <!-- Forward 10s -->
+    <button class="cbtn" data-tip="+10s" onclick="showToast('Seek +10s')">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
+      </svg>
+    </button>
+    <!-- Volume -->
+    <button class="cbtn" id="volBtn" data-tip="Mute" onclick="toggleMute(this)">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="cgroup">
+    <!-- Subtitles -->
+    <button class="cbtn" data-tip="Subtitles" onclick="this.classList.toggle('on')">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-8 7H5v-2h7v2zm7 4H5v-2h14v2zm0-4h-4v-2h4v2z"/>
+      </svg>
+    </button>
+    <!-- Quality -->
+    <button class="cbtn" data-tip="Quality" onclick="showToast('Auto quality active')">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="7" width="20" height="10" rx="2"/>
+        <path d="M8 11h2m0 0h2m-2 0v2m0-2V9M14 11h4"/>
+      </svg>
+    </button>
+    <!-- Settings -->
+    <button class="cbtn" data-tip="Settings" onclick="showToast('Settings')">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54A.484.484 0 0 0 14 3h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87a.48.48 0 0 0 .12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41H14c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+      </svg>
+    </button>
+    <!-- Fullscreen -->
+    <button class="cbtn" data-tip="Fullscreen" onclick="goFullscreen()">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ── ACTION BAR ── -->
+<div class="action-bar">
+  <button class="abtn" onclick="cycleAudio()">
+    🌐 Audio: <span id="audioLbl">Hindi</span>
+  </button>
+  <button class="abtn primary" onclick="skipNow()">
+    › Not playing? Skip
+  </button>
+  <button class="abtn green" id="popBtn" onclick="togglePopup()">
+    ✓ <span id="popLbl">No-popup</span>
+  </button>
+  <button class="abtn" onclick="reloadCurrent()">
+    ↻ Reload
+  </button>
+  <button class="abtn" onclick="goFullscreen()">
+    ⛶ Fullscreen
+  </button>
+</div>
+
+<!-- ── FOOTER ── -->
+<div class="footer">
+  <div class="footer-left">
+    <div class="footer-logo">Taara</div>
+    <div class="footer-text">
+      <p>Developed by <b>Lumivox Studios</b></p>
+      <p>Powered by <b>Sufiyan Absar</b></p>
+    </div>
+  </div>
+  <div class="footer-right">
+    &copy; 2025 Lumivox Studios<br>All rights reserved
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════
+   35 SERVERS — Vidfast first, all background
+   ═══════════════════════════════════════════ */
+var SERVERS = [
+  { name:'Vidfast',
+    movie:function(id){return'https://vidfast.pro/movie/'+id+'?autoPlay=true';},
+    tv:function(id,s,e){return'https://vidfast.pro/tv/'+id+'/'+s+'/'+e+'?autoPlay=true';}},
+  { name:'Vidsrc',
+    movie:function(id){return'https://vidsrc.to/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://vidsrc.to/embed/tv/'+id+'/'+s+'/'+e;}},
+  { name:'SuperEmbed',
+    movie:function(id){return'https://multiembed.mov/directstream.php?video_id='+id+'&tmdb=1';},
+    tv:function(id,s,e){return'https://multiembed.mov/directstream.php?video_id='+id+'&tmdb=1&s='+s+'&e='+e;}},
+  { name:'Embed.su',
+    movie:function(id){return'https://embed.su/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://embed.su/embed/tv/'+id+'/'+s+'/'+e;}},
+  { name:'2Embed',
+    movie:function(id){return'https://www.2embed.cc/embed/'+id;},
+    tv:function(id,s,e){return'https://www.2embed.cc/embedtv/'+id+'&s='+s+'&e='+e;}},
+  { name:'Smashystream',
+    movie:function(id){return'https://player.smashy.stream/movie/'+id;},
+    tv:function(id,s,e){return'https://player.smashy.stream/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'AutoEmbed',
+    movie:function(id){return'https://autoembed.co/movie/tmdb/'+id;},
+    tv:function(id,s,e){return'https://autoembed.co/tv/tmdb/'+id+'-'+s+'-'+e;}},
+  { name:'MoviesAPI',
+    movie:function(id){return'https://moviesapi.club/movie/'+id;},
+    tv:function(id,s,e){return'https://moviesapi.club/tv/'+id+'-'+s+'-'+e;}},
+  { name:'Vidsrc.me',
+    movie:function(id){return'https://vidsrc.me/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://vidsrc.me/embed/tv/'+id+'?season='+s+'&episode='+e;}},
+  { name:'Vidsrc.nl',
+    movie:function(id){return'https://player.vidsrc.nl/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://player.vidsrc.nl/embed/tv/'+id+'/'+s+'/'+e;}},
+  { name:'Rive',
+    movie:function(id){return'https://rivestream.live/embed?type=movie&id='+id;},
+    tv:function(id,s,e){return'https://rivestream.live/embed?type=tv&id='+id+'&season='+s+'&episode='+e;}},
+  { name:'Vidlink',
+    movie:function(id){return'https://vidlink.pro/movie/'+id;},
+    tv:function(id,s,e){return'https://vidlink.pro/tv/'+id+'/'+s+'/'+e;}},
+  { name:'Pressplay',
+    movie:function(id){return'https://pressplay.top/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://pressplay.top/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'Flixhq',
+    movie:function(id){return'https://flixhq.to/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://flixhq.to/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'CineZone',
+    movie:function(id){return'https://cinezone.to/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://cinezone.to/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'Lookmovie',
+    movie:function(id){return'https://lookmovie2.to/movies/view/'+id;},
+    tv:function(id,s,e){return'https://lookmovie2.to/shows/view/'+id;}},
+  { name:'NontonGo',
+    movie:function(id){return'https://www.nontongo.win/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://www.nontongo.win/embed/tv/'+id+'/'+s+'/'+e;}},
+  { name:'Warezcdn',
+    movie:function(id){return'https://embed.warezcdn.link/filme/'+id;},
+    tv:function(id,s,e){return'https://embed.warezcdn.link/serie/'+id+'/'+s+'/'+e;}},
+  { name:'Hdtoday',
+    movie:function(id){return'https://hdtoday.cc/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://hdtoday.cc/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'M4uhd',
+    movie:function(id){return'https://m4uhd.cc/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://m4uhd.cc/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'Catflix',
+    movie:function(id){return'https://catflix.su/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://catflix.su/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'StreamVid',
+    movie:function(id){return'https://streamvid.net/e/'+id;},
+    tv:function(id,s,e){return'https://streamvid.net/e/'+id+'?s='+s+'&e='+e;}},
+  { name:'EpicStream',
+    movie:function(id){return'https://epicstream.net/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://epicstream.net/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'Popcornmovies',
+    movie:function(id){return'https://popcornmovies.to/embed/'+id;},
+    tv:function(id,s,e){return'https://popcornmovies.to/embed/'+id+'?s='+s+'&e='+e;}},
+  { name:'Kinoger',
+    movie:function(id){return'https://kinoger.pw/embed/'+id;},
+    tv:function(id,s,e){return'https://kinoger.pw/embed/'+id+'?s='+s+'&e='+e;}},
+  { name:'Dootv',
+    movie:function(id){return'https://do.ota.to/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://do.ota.to/embed/tv/'+id+'/'+s+'/'+e;}},
+  { name:'DbGo',
+    movie:function(id){return'https://db.go.to/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://db.go.to/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'NetuTV',
+    movie:function(id){return'https://netutv.org/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://netutv.org/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'Asiaflix',
+    movie:function(id){return'https://asiaflix.net/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://asiaflix.net/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'Filmxy',
+    movie:function(id){return'https://filmxy.vip/embed/'+id;},
+    tv:function(id,s,e){return'https://filmxy.vip/embed/'+id+'?s='+s+'&e='+e;}},
+  { name:'AniZone',
+    movie:function(id){return'https://anizone.to/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://anizone.to/embed/tv/'+id+'?s='+s+'&e='+e;}},
+  { name:'HindiLinks',
+    movie:function(id){return'https://hindilinks4u.cam/embed/'+id;},
+    tv:function(id,s,e){return'https://hindilinks4u.cam/embed/'+id+'?s='+s+'&e='+e;}},
+  { name:'Uqload',
+    movie:function(id){return'https://uqload.to/embed/'+id;},
+    tv:function(id,s,e){return'https://uqload.to/embed/'+id+'?s='+s+'&e='+e;}},
+  { name:'EmbedHelper',
+    movie:function(id){return'https://embedhelper.com/video/'+id;},
+    tv:function(id,s,e){return'https://embedhelper.com/video/'+id+'?s='+s+'&e='+e;}},
+  { name:'Dplayerapi',
+    movie:function(id){return'https://dplayerapi.com/embed/movie/'+id;},
+    tv:function(id,s,e){return'https://dplayerapi.com/embed/tv/'+id+'?s='+s+'&e='+e;}}
+];
+
+/* ═══════════════════════════════
+   URL PARAMS → Dynamic Title
+   ?name=Inception&type=movie&id=27205
+   ?name=Breaking+Bad&type=tv&id=1396&s=2&e=5
+   ═══════════════════════════════ */
+var P       = new URLSearchParams(location.search);
+var mediaId = P.get('id')   || '94997';
+var mType   = P.get('type') || 'tv';
+var season  = P.get('s')    || '1';
+var episode = P.get('e')    || '1';
+var mName   = decodeURIComponent(P.get('name') || '');
+var mYear   = P.get('year') || '';
+
+// Title bar
+document.getElementById('topTitle').textContent = mName || 'Taara';
+document.title = (mName ? mName + ' — ' : '') + 'Taara';
+
+// Subtitle row — no S1:E1, just "Season · Episode" or year
+var subEl = document.getElementById('topSub');
+if (mType === 'tv' && mName) {
+  subEl.textContent = 'Season ' + season + '  ·  Episode ' + episode;
+} else if (mYear) {
+  subEl.textContent = mYear;
+} else {
+  subEl.textContent = '';
+}
+
+// Now Playing overlay — only show show name, nothing else
+document.getElementById('npTitle').textContent = mName || '';
+
+/* ═══════════════════════════════
+   PLAYER ENGINE
+   ═══════════════════════════════ */
+var currentIdx  = 0;
+var switchTimer = null;
+var loadTimer   = null;
+var dismissed   = false;
+var muted       = false;
+var paused      = false;
+var noPopup     = true;
+
+var frame     = document.getElementById('playerFrame');
+var overlay   = document.getElementById('playerOverlay');
+var spinner   = document.getElementById('spinner');
+var playBig   = document.getElementById('playBig');
+var statusTxt = document.getElementById('statusTxt');
+
+function getUrl(idx) {
+  var s = SERVERS[idx % SERVERS.length];
+  return mType === 'tv' ? s.tv(mediaId, season, episode) : s.movie(mediaId);
+}
+
+function loadServer(idx) {
+  idx = ((idx % SERVERS.length) + SERVERS.length) % SERVERS.length;
+  currentIdx = idx;
+  dismissed  = false;
+
+  overlay.classList.remove('hidden');
+  spinner.style.display = 'block';
+  playBig.style.display = 'none';
+  statusTxt.textContent = 'Connecting…';
+
+  clearTimeout(switchTimer);
+  clearTimeout(loadTimer);
+
+  frame.src = getUrl(idx);
+
+  // 2s → show play button (optimistic: server responded)
+  loadTimer = setTimeout(function() {
+    if (!dismissed) {
+      spinner.style.display = 'none';
+      playBig.style.display = 'flex';
+      statusTxt.textContent = 'Tap to play';
+    }
+  }, 2000);
+
+  // 3s → next server silently if user hasn't tapped
+  switchTimer = setTimeout(function() {
+    if (!dismissed) loadServer(idx + 1);
+  }, 3000);
+}
+
+// iframe load fires → give 1.5s more then switch if still not dismissed
+frame.addEventListener('load', function() {
+  if (!dismissed) {
+    clearTimeout(switchTimer);
+    switchTimer = setTimeout(function() {
+      if (!dismissed) loadServer(currentIdx + 1);
+    }, 1500);
+  }
+});
+
+function dismissOverlay() {
+  dismissed = true;
+  clearTimeout(switchTimer);
+  clearTimeout(loadTimer);
+  overlay.classList.add('hidden');
+}
+
+function skipNow() {
+  dismissed = false;
+  loadServer(currentIdx + 1);
+  showToast('Trying next server…');
+}
+
+function reloadCurrent() {
+  dismissed = false;
+  loadServer(currentIdx);
+  showToast('Reloading…');
+}
+
+/* ── Controls ── */
+function togglePause(btn) {
+  paused = !paused;
+  btn.setAttribute('data-tip', paused ? 'Play' : 'Pause');
+  btn.innerHTML = paused
+    ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+}
+
+function toggleMute(btn) {
+  muted = !muted;
+  btn.setAttribute('data-tip', muted ? 'Unmute' : 'Mute');
+  btn.innerHTML = muted
+    ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>';
+  showToast(muted ? '🔇 Muted' : '🔊 Unmuted');
+}
+
+function goFullscreen() {
+  var el = document.getElementById('playerContainer');
+  document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen();
+}
+
+var audios   = ['Hindi','English','Tamil','Telugu','Punjabi'];
+var audioIdx = 0;
+function cycleAudio() {
+  audioIdx = (audioIdx + 1) % audios.length;
+  document.getElementById('audioLbl').textContent = audios[audioIdx];
+  showToast('🌐 Audio: ' + audios[audioIdx]);
+}
+
+function togglePopup() {
+  noPopup = !noPopup;
+  document.getElementById('popLbl').textContent = noPopup ? 'No-popup' : 'Popup';
+  document.getElementById('popBtn').className   = noPopup ? 'abtn green' : 'abtn';
+}
+
+function seekTo(e) {
+  var rect = document.getElementById('ptrack').getBoundingClientRect();
+  var pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  document.getElementById('pfill').style.width = (pct * 100) + '%';
+}
+
+var _tt;
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(function(){ t.classList.remove('show'); }, 2400);
+}
+
+/* Boot */
+window.addEventListener('DOMContentLoaded', function(){ loadServer(0); });
+</script>
+</body>
+</html>
